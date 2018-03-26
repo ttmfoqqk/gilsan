@@ -1,0 +1,153 @@
+<!-- #include file="../inc/top.asp" -->
+<%
+
+Dim idx        : idx        = IIF( request("idx")="","0",request("idx") )
+Dim pageNo     : pageNo     = CInt(IIF(request("pageNo")="","1",request("pageNo")))
+Dim tap        : tap      = IIF( request("tap")="",0,request("tap") )
+
+Dim PageParams : PageParams = "pageNo=" & pageNo & "&tap=" & tap
+
+Call Expires()
+Call dbopen()
+	Call GetList()
+Call dbclose()
+
+If FI_Idx = "" Then 
+	With Response
+	 .Write "<script language='javascript' type='text/javascript'>"
+	 .Write "alert('잘못된 경로입니다.');"
+	 .Write "history.back(-1);"
+	 .Write "</script>"
+	 .End
+	End With
+End If
+
+
+Sub GetList()
+	SET objRs  = Server.CreateObject("ADODB.RecordSet")
+	SET objCmd = Server.CreateObject("adodb.command")
+	with objCmd
+		.ActiveConnection = objConn
+		.prepared         = true
+		.CommandType      = adCmdStoredProc
+		.CommandText      = "M_BOARD_CONT_V"
+		.Parameters("@Idx").value      = idx
+		.Parameters("@BoardKey").value = 27
+		.Parameters("@actType").value  = "VIEW"
+		Set objRs = .Execute
+	End with
+	set objCmd = nothing
+	CALL setFieldValue(objRs, "FI")
+	objRs.close	: Set objRs = Nothing
+End Sub
+%>
+<link rel="stylesheet" type="text/css" href="../inc/css/sub.css">
+
+<div id="middle_sub">
+	<!-- #include file="../inc/sub_visual.asp" -->
+	
+	<div class="navi_wrap">
+		<div class="width_wrap">
+			<span class="home">H</span><span class="block1">고객센터</span><span class="block2">길산뉴스</span>
+		</div>
+	</div>
+
+	<div class="width_wrap">
+		<!-- #include file="../inc/left.asp" -->
+		<div id="contant">
+			<h3 class="title">길산뉴스</h3>
+
+			<form name="AdminForm" id="AdminForm" method="POST" action="page7_proc.asp" enctype="multipart/form-data">
+			<input type="hidden" name="actType" id="actType" value="">
+			<input type="hidden" name="Idx" id="Idx" value="<%=FI_Idx%>">
+
+			<input type="hidden" name="PageParams" value="<%=Server.urlencode(PageParams)%>">
+
+
+			<table cellpadding="0" cellspacing="0" style="border-top:2px solid #4f4f4f;width:100%;font-size:14px;line-height:150%;margin-bottom:10px;">
+				<tr style="height:40px;">
+					<td style="border-bottom:1px solid #4f4f4f;width:125px;padding-left:15px;background-color:#fafafa;">제목</td>
+					<td style="border-bottom:1px solid #4f4f4f;background-color:#fafafa;"><%= TagDecode( FI_Title )%></td>
+				</tr>
+				<tr style="height:40px;">
+					<td style="border-bottom:1px solid #4f4f4f;color:#85868a;padding-left:15px;" colspan="2"><%=FI_ContName%> | <%=FI_Indate%> | Views <%=FI_Read_cnt%></td>
+				</tr>
+				<tr style="height:40px;">
+					<td style="border-bottom:1px solid #4f4f4f;padding:20px 0px 20px 15px;" valign="top">내용</td>
+					<td style="border-bottom:1px solid #4f4f4f;padding:20px 0px 20px 0px;">
+						<%
+							If FI_File_name = "" Then 
+								img = ""
+							Else
+								if FILE_CHECK_EXT( FI_File_name ) Then 
+									img = "<img src=""../upload/board/"& FI_File_name &""" style=""width:100%;""><br><br>"
+								Else
+									img = ""
+								End If
+							End If
+							Response.write img
+						%>
+						<%=FI_Contants%>
+					</td>
+				</tr>
+				<%If FI_File_name <> "" Then %>
+				<tr style="height:40px;">
+					<td style="border-bottom:1px solid #4f4f4f;color:#85868a;padding-left:15px;" colspan="2"><a href="../common/download.asp?pach=/upload/Board/&file=<%=FI_File_name%>"><%=FI_File_name%></a></td>
+				</tr>
+				<%End If%>
+			</table>
+			
+			<div style="text-align:right;margin-bottom:10px;height:50px;">
+				<button class="btn_bg" type="button" style="width:80px;float:left;margin:0px;" onclick="location.href='page7.asp?<%=PageParams%>'">목록보기</button>
+				<%If FI_AdminIdx = "0" And FI_UserId = session("userId") Then %>
+				<button class="btn_bg" type="button" style="width:80px;" onclick="location.href='page7_write.asp?<%=PageParams%>&idx=<%=idx%>&actType=mody'">수정</button>
+				<button class="btn_bg" type="button" style="width:80px;" onclick="check();">삭제</button>
+				<%End If%>
+			</div>
+
+			</form>
+
+			
+			
+			<!-- 댓글 -->
+			<STYLE type="text/css">
+				#updateCommentWrap{position:absolute;top:-5px;left:-135px;height:70px;background-color:#eeeeee;border-bottom:1px solid #000000;z-index:100;padding:10px 0px 10px 0px;}
+				.board_table{border-top:2px solid #4f4f4f;width:100%;font-size:12px;line-height:150%;margin-bottom:10px;}
+				.board_table td{border-bottom:1px solid #4f4f4f;padding:5px 0px 5px 0px;}
+			</STYLE>
+			<input type="hidden" id="boardKey" value="<%=FI_Key%>">
+			<div style="margin-bottom:20px;">
+				<textarea id="comment_input" class="input" style="width:610px;height:50px;line-height:120%;" onclick="<%=IIF(session("userId")="","if(confirm('로그인 하시겠습니까?')){document.location.href='../login/index.asp?goUrl="&server.urlencode(g_host & g_url &  "?" & Request.ServerVariables("QUERY_STRING") )&"';}","")%>"></textarea>
+				<button id="comment_submit" class="btn" style="width:100px;height:54px;" onclick="<%=IIF(session("userId")="","if(confirm('로그인 하시겠습니까?')){document.location.href='../login/index.asp?goUrl="&server.urlencode(g_host & g_url &  "?" & Request.ServerVariables("QUERY_STRING") )&"';}","")%>">전송</button>
+			</div>			
+			<table cellpadding="0" cellspacing="0" class="board_table" id="comment_list">
+				<tr>
+					<td align="center">로딩중입니다.</td>
+				</tr>
+			</table>
+			<center>
+				<div class="page_wrap" id="comment_page"></div>
+			</center>
+			<script type="text/JavaScript" src="comment.utf8.js"></script>
+			<!-- 댓글 -->
+
+
+
+
+		</div>
+	</div>
+
+
+</div>
+
+<script type="text/javascript">
+function check(){
+	var fm = document.AdminForm;
+	if(confirm("삭제 하시겠습니까?")){
+		$('#actType').val('DELETE');
+		$('#AdminForm').submit();
+	}
+}
+
+</script>
+<!-- #include file="../inc/footer.asp" -->
